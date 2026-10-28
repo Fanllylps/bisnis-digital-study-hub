@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f8f7f4" />
+  <meta name="description" content="Ruang belajar interaktif Pengantar Bisnis Digital — enam pertemuan materi, visualisasi, catatan, dan kuis." />
+  <title>Ruang Belajar — Pengantar Bisnis Digital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navigasi materi">
+      <div class="brand-lockup">
+        <a href="#dashboard" class="brand-mark" data-action="dashboard" aria-label="Ke dashboard">bd<span>.</span></a>
+        <div class="brand-copy"><strong>RUANG BELAJAR</strong><span>PENGANTAR BISNIS DIGITAL</span></div>
+        <button class="icon-button sidebar-close" data-action="close-sidebar" aria-label="Tutup navigasi">×</button>
+      </div>
+      <button class="side-home" data-action="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+      <div class="side-section-label"><span>DAFTAR MATERI</span><span>6 MODUL</span></div>
+      <nav class="module-nav" id="module-nav"></nav>
+      <div class="sidebar-bottom">
+        <div class="course-progress-label"><span>PROGRES MATA KULIAH</span><span id="overall-progress-label">0%</span></div>
+        <div class="progress-track"><span id="overall-progress-bar"></span></div>
+        <p>Progress tersimpan otomatis di perangkat ini.</p>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <button class="icon-button menu-toggle" data-action="open-sidebar" aria-label="Buka navigasi"><span class="hamburger"></span></button>
+        <div class="breadcrumbs" id="breadcrumbs"><span>RUANG BELAJAR</span><i>/</i><span>OVERVIEW</span></div>
+        <div class="topbar-actions">
+          <button class="search-trigger" data-action="open-search" aria-label="Cari materi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m16 16 4.2 4.2"></path></svg><span>Cari konsep...</span><kbd>⌘ / Ctrl K</kbd></button>
+          <button class="icon-button theme-toggle" data-action="theme" aria-label="Ubah tema" title="Ubah tema"><span id="theme-icon"></span></button>
+        </div>
+      </header>
+      <main id="app-main" tabindex="-1"></main>
+      <footer class="site-footer"><span>RUANG BELAJAR · PENGANTAR BISNIS DIGITAL</span><span>6 PERTEMUAN <i>·</i> 3 SKS</span></footer>
+    </div>
+  </div>
+
+  <div class="sidebar-scrim" id="sidebar-scrim" data-action="close-sidebar"></div>
+  <section class="search-overlay" id="search-overlay" aria-hidden="true" aria-label="Pencarian materi">
+    <div class="search-backdrop" data-action="close-search"></div>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-title">
+      <div class="search-input-row"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m16 16 4.2 4.2"></path></svg><input id="global-search" type="search" placeholder="Cari konsep, definisi, model bisnis…" autocomplete="off" /><kbd>ESC</kbd></div>
+      <div class="search-results" id="search-results"><p class="search-hint" id="search-title">Ketik untuk mencari di seluruh materi.</p></div>
+      <div class="search-foot"><span>Hasil mencakup istilah, definisi, dan subbab</span><span>ENTER untuk membuka</span></div>
+    </div>
+  </section>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
