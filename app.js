@@ -7,6 +7,7 @@ const searchInput = document.querySelector('#global-search');
 const searchResults = document.querySelector('#search-results');
 const readKey = 'bd-study-progress-v1';
 const themeKey = 'bd-study-theme-v1';
+const scrollBehavior = () => window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth';
 
 const savedRead = JSON.parse(localStorage.getItem(readKey) || '[]');
 const state = {
@@ -53,12 +54,12 @@ function renderNav() {
     const percent = progressFor(mod);
     return `<button class="module-link ${state.active === mod.id ? 'active' : ''}" data-action="module" data-module="${mod.id}" aria-current="${state.active === mod.id ? 'page' : 'false'}">
       <span class="module-number">${mod.no}</span><span class="module-name"><strong>${esc(mod.title)}</strong><span>${esc(mod.short)}</span></span><span class="module-percent">${percent}%</span>
-      <span class="module-progress"><span style="width:${percent}%"></span></span>
+      <span class="module-progress"><span style="--progress-value:${percent / 100}"></span></span>
     </button>`;
   }).join('');
   const overall = overallProgress();
   $('#overall-progress-label').textContent = `${overall}%`;
-  $('#overall-progress-bar').style.width = `${overall}%`;
+  $('#overall-progress-bar').style.transform = `scaleX(${overall / 100})`;
 }
 
 function setBreadcrumb() {
@@ -83,7 +84,7 @@ function renderDashboard() {
     </section>
     <section aria-labelledby="module-list-title"><div class="module-index-head"><h2 id="module-list-title">Daftar materi</h2><span>01 — 06 / PERTEMUAN</span></div><ol class="dashboard-module-list">${course.map(mod => {
       const percent = progressFor(mod);
-      return `<li class="dashboard-module" role="button" tabindex="0" data-action="module" data-module="${mod.id}"><span class="dash-number">${mod.no}</span><span class="dash-title"><strong>${esc(mod.title)}</strong><span>${mod.sections.length} topik · visualisasi, flashcards & kuis</span></span><span class="dash-outcome">${esc(mod.outcome)}</span><span class="dash-progress">${percent}%<i><span style="width:${percent}%"></span></i></span><span class="dash-arrow">↗</span></li>`;
+      return `<li class="dashboard-module" role="button" tabindex="0" data-action="module" data-module="${mod.id}"><span class="dash-number">${mod.no}</span><span class="dash-title"><strong>${esc(mod.title)}</strong><span>${mod.sections.length} topik · visualisasi, flashcards & kuis</span></span><span class="dash-outcome">${esc(mod.outcome)}</span><span class="dash-progress">${percent}%<i><span style="--progress-value:${percent / 100}"></span></i></span><span class="dash-arrow">↗</span></li>`;
     }).join('')}</ol></section>
     <div class="dashboard-note"><span><strong>Cara memakai ruang belajar</strong> — pilih topik, tandai bagian yang selesai dibaca, lalu uji ingatan melalui flashcards dan kuis.</span><span>Materi lengkap <strong>${course.reduce((n, mod) => n + mod.sections.length, 0)} subbab</strong></span></div>
     <details class="course-admin"><summary>Administrasi perkuliahan · penilaian, nilai, dan syarat ujian</summary><div class="admin-body"><div><span class="mono-label">KOMPONEN PENILAIAN</span><ul>${courseMeta.assessment.breakdown.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div><div><span class="mono-label">KONVERSI NILAI</span><table class="grade-table"><thead><tr><th>Nilai angka</th><th>Huruf</th><th>Bobot</th></tr></thead><tbody>${courseMeta.assessment.grades.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div><span class="mono-label">SYARAT UTS / UAS</span><ul>${courseMeta.assessment.eligibility.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div></div></details>`;
@@ -117,7 +118,7 @@ function renderSection(mod, section, i) {
     <div class="concept-list">${section.concepts.map(concept => `<div class="concept-item"><div class="concept-title"><h3>${esc(concept.name)}</h3><span>Konsep inti</span></div><div class="concept-body">${[
       ['Definisi inti', concept.definition, ''], ['Cara kerja / mekanisme', concept.mechanism, ''], ['Contoh nyata', concept.example, ''], ['Poin kunci ujian', concept.takeaway, 'takeaway']
     ].map(([label, text, cls]) => `<div class="concept-detail ${cls}"><strong>${label}</strong><p>${esc(text)}</p></div>`).join('')}</div></div>`).join('')}</div>
-    ${section.matrix ? `<div class="table-scroll"><table class="compare-table"><thead><tr><th>Dimensi</th><th>Bisnis konvensional</th><th>Bisnis digital</th></tr></thead><tbody>${section.matrix.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}
+     ${section.matrix ? `<div class="table-scroll" role="region" aria-label="Tabel perbandingan bisnis konvensional dan digital" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th>Bisnis konvensional</th><th>Bisnis digital</th></tr></thead><tbody>${section.matrix.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}
     ${section.exercise ? `<div class="section-exercise"><strong>Latihan dari materi</strong>${esc(section.exercise)}</div>` : ''}
     <div class="section-complete-line"><button class="mark-section ${done ? 'done' : ''}" data-action="mark-section" data-key="${key}">${done ? '✓ Selesai dibaca' : '+ Tandai selesai dibaca'}</button></div>
   </section>`;
@@ -161,7 +162,7 @@ function renderM1() {
     <section class="visual-panel">${panelHead('Bisnis konvensional vs digital', 'Pilih dimensi untuk melihat perbedaan langsung berdasarkan materi pertemuan.')}
       <div class="pill-row">${course[0].compare.map((dim, i) => pill(dim.label, 'compare-dim', i, Number(state.ui.compareDim) === i)).join('')}</div>
       <div class="pill-row" aria-label="Sorot sisi perbandingan">${pill('Tradisional', 'compare-view', 'traditional', focusTraditional)}${pill('Digital', 'compare-view', 'digital', !focusTraditional)}</div>
-      <table class="compare-table"><thead><tr><th>Dimensi</th><th class="${focusTraditional ? 'is-focus' : ''}">Konvensional</th><th class="${!focusTraditional ? 'is-focus' : ''}">Digital</th></tr></thead><tbody>${course[0].compare.map((dim, i) => `<tr><td>${esc(dim.label)}</td><td class="${focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.traditional)}</td><td class="${!focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.digital)}</td></tr>`).join('')}</tbody></table>
+       <div class="table-scroll" role="region" aria-label="Perbandingan bisnis konvensional dan digital; geser tabel ke samping untuk melihat kolom lain" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th class="${focusTraditional ? 'is-focus' : ''}">Konvensional</th><th class="${!focusTraditional ? 'is-focus' : ''}">Digital</th></tr></thead><tbody>${course[0].compare.map((dim, i) => `<tr><td>${esc(dim.label)}</td><td class="${focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.traditional)}</td><td class="${!focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.digital)}</td></tr>`).join('')}</tbody></table></div>
       <div class="compare-insight"><strong>${esc(item.label)} · </strong>${esc(focusTraditional ? item.traditional : item.digital)} <span>— bisnis modern juga dapat bersifat hybrid.</span></div>
     </section>
     <section class="visual-panel">${panelHead('Peta konsep bisnis digital', 'Pilih node untuk menelusuri hubungan antarkomponen.')}
@@ -336,20 +337,25 @@ function openModule(moduleId, section = null) {
   document.querySelectorAll('.side-home').forEach(el => el.classList.remove('active'));
   closeSidebar();
   if (section !== null && section !== '') {
-    requestAnimationFrame(() => document.getElementById(`${moduleId}-section-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  } else window.scrollTo({ top: 0, behavior: 'smooth' });
+    requestAnimationFrame(() => document.getElementById(`${moduleId}-section-${section}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
+  } else window.scrollTo({ top: 0, behavior: scrollBehavior() });
 }
 
 function openDashboard() {
   state.active = null; state.cheat = false;
   document.querySelectorAll('.side-home').forEach(el => el.classList.add('active'));
-  renderNav(); setBreadcrumb(); renderDashboard(); closeSidebar(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderNav(); setBreadcrumb(); renderDashboard(); closeSidebar(); window.scrollTo({ top: 0, behavior: scrollBehavior() });
 }
 
 function updateVisuals() {
   const mod = currentModule();
   const root = $('#module-visuals');
-  if (mod && root) root.innerHTML = `<div class="section-kicker">VISUALISASI & EKSPLORASI</div>${renderVisuals(mod)}`;
+  if (!mod || !root) return;
+  root.innerHTML = `<div class="section-kicker">VISUALISASI & EKSPLORASI</div>${renderVisuals(mod)}`;
+  if (!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches && root.animate) {
+    root.getAnimations().forEach(animation => animation.cancel());
+    root.animate([{ opacity: .76 }, { opacity: 1 }], { duration: 140, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  }
 }
 
 function closeSidebar() {
