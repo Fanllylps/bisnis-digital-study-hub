@@ -1,4 +1,5 @@
 import { course, courseMeta } from './courseData.js';
+import { utsGuide } from './utsGuide.js';
 
 const app = document.querySelector('#app-main');
 const nav = document.querySelector('#module-nav');
@@ -11,6 +12,7 @@ const scrollBehavior = () => window.matchMedia?.('(prefers-reduced-motion: reduc
 
 const savedRead = JSON.parse(localStorage.getItem(readKey) || '[]');
 const state = {
+  page: 'dashboard', guideMeeting: 'all',
   active: null,
   cheat: false,
   read: new Set(savedRead),
@@ -50,6 +52,11 @@ function applyTheme() {
 }
 
 function renderNav() {
+  document.querySelectorAll('[data-nav-page]').forEach(link => {
+    const active = link.dataset.navPage === state.page;
+    link.classList.toggle('active', active);
+    link.setAttribute('aria-current', active ? 'page' : 'false');
+  });
   nav.innerHTML = course.map(mod => {
     const percent = progressFor(mod);
     return `<button class="module-link ${state.active === mod.id ? 'active' : ''}" data-action="module" data-module="${mod.id}" aria-current="${state.active === mod.id ? 'page' : 'false'}">
@@ -65,11 +72,11 @@ function renderNav() {
 function setBreadcrumb() {
   const crumb = $('#breadcrumbs');
   const mod = currentModule();
-  crumb.innerHTML = `<span>RUANG BELAJAR</span><i>/</i><span>${mod ? `${mod.no} · ${esc(mod.title).toUpperCase()}` : 'OVERVIEW'}</span>`;
+  const current = state.page === 'guide' ? 'KISI-KISI UTS' : mod ? `${mod.no} · ${esc(mod.title).toUpperCase()}` : 'OVERVIEW';
+  crumb.innerHTML = `<span>RUANG BELAJAR</span><i>/</i><span>${current}</span>`;
 }
 
 function renderDashboard() {
-  document.querySelector('.side-home')?.classList.add('active');
   const overall = overallProgress();
   const next = course.find(mod => progressFor(mod) < 100) || course[0];
   const completed = course.filter(mod => progressFor(mod) === 100).length;
@@ -82,12 +89,44 @@ function renderDashboard() {
       <div class="overview-panel"><div class="overview-copy"><div class="mono-label">PROGRES BELAJAR</div><h2>${completed ? `${completed} dari 6 modul selesai` : 'Progres Anda tersimpan di sini'}</h2><p>Bagian yang Anda tandai selesai disimpan otomatis pada perangkat ini. Buka modul untuk membaca materi dan mengecek pemahaman.</p></div><div class="overall-ring" style="--progress:${overall}%"><strong>${overall}%</strong></div></div>
       <div class="overview-side"><div><div class="mono-label">LANJUTKAN BELAJAR</div><strong>${esc(next.title)}</strong><p>Pertemuan ${next.no} · ${progressFor(next)}% selesai dibaca</p></div><button class="text-link" data-action="module" data-module="${next.id}">Buka materi <span>↗</span></button></div>
     </section>
+    <section class="guide-promo" aria-label="Persiapan UTS"><div><span class="mono-label">PERSIAPAN UTS · 6 PERTEMUAN</span><h2>Uji kisi-kisi, pahami jawabannya.</h2><p>12 pertanyaan dari catatan kisi-kisi, dengan jawaban dan tautan langsung ke materi.</p></div><button class="text-link" data-action="guide">Buka kisi-kisi <span>↗</span></button></section>
     <section aria-labelledby="module-list-title"><div class="module-index-head"><h2 id="module-list-title">Daftar materi</h2><span>01 — 06 / PERTEMUAN</span></div><ol class="dashboard-module-list">${course.map(mod => {
       const percent = progressFor(mod);
       return `<li class="dashboard-module" role="button" tabindex="0" data-action="module" data-module="${mod.id}"><span class="dash-number">${mod.no}</span><span class="dash-title"><strong>${esc(mod.title)}</strong><span>${mod.sections.length} topik · visualisasi, flashcards & kuis</span></span><span class="dash-outcome">${esc(mod.outcome)}</span><span class="dash-progress">${percent}%<i><span style="--progress-value:${percent / 100}"></span></i></span><span class="dash-arrow">↗</span></li>`;
     }).join('')}</ol></section>
     <div class="dashboard-note"><span><strong>Cara memakai ruang belajar</strong> — pilih topik, tandai bagian yang selesai dibaca, lalu uji ingatan melalui flashcards dan kuis.</span><span>Materi lengkap <strong>${course.reduce((n, mod) => n + mod.sections.length, 0)} subbab</strong></span></div>
     <details class="course-admin"><summary>Administrasi perkuliahan · penilaian, nilai, dan syarat ujian</summary><div class="admin-body"><div><span class="mono-label">KOMPONEN PENILAIAN</span><ul>${courseMeta.assessment.breakdown.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div><div><span class="mono-label">KONVERSI NILAI</span><table class="grade-table"><thead><tr><th>Nilai angka</th><th>Huruf</th><th>Bobot</th></tr></thead><tbody>${courseMeta.assessment.grades.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div><span class="mono-label">SYARAT UTS / UAS</span><ul>${courseMeta.assessment.eligibility.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div></div></details>`;
+}
+
+function renderGuide() {
+  const visible = state.guideMeeting === 'all'
+    ? utsGuide
+    : utsGuide.filter(item => item.meeting === Number(state.guideMeeting));
+  const meetings = [...new Set(visible.map(item => item.meeting))];
+  const filters = ['all', ...[...new Set(utsGuide.map(item => item.meeting))].map(String)];
+  const labelForMeeting = meeting => course.find(mod => Number(mod.no) === meeting)?.title || `Pertemuan ${meeting}`;
+  app.innerHTML = `
+    <article class="guide-page">
+      <header class="guide-head"><div class="eyebrow">PENGANTAR BISNIS DIGITAL <span>·</span> PERSIAPAN UTS</div><h1>Kisi-kisi UTS</h1><p>12 pertanyaan dari foto kisi-kisi, dijawab ringkas berdasarkan materi perkuliahan. Pilih pertemuan untuk fokus belajar, atau buka rujukan untuk membaca penjelasan lengkap.</p></header>
+      <div class="guide-summary"><span><strong>12</strong> pertanyaan</span><span><strong>6</strong> pertemuan</span><span>Jawaban + rujukan materi</span></div>
+      <div class="guide-filters" role="group" aria-label="Filter kisi-kisi berdasarkan pertemuan">${filters.map(filter => {
+        const active = String(state.guideMeeting) === filter;
+        const label = filter === 'all' ? 'Semua' : `Pertemuan ${filter.padStart(2, '0')}`;
+        return `<button aria-pressed="${active}" class="pill-button ${active ? 'active' : ''}" data-action="guide-filter" data-value="${filter}">${label}</button>`;
+      }).join('')}</div>
+      <div class="guide-groups">${meetings.map(meeting => {
+        const items = visible.filter(item => item.meeting === meeting);
+        return `<section class="guide-meeting" aria-labelledby="guide-meeting-${meeting}"><header class="guide-meeting-head"><div><span class="mono-label">PERTEMUAN ${String(meeting).padStart(2, '0')}</span><h2 id="guide-meeting-${meeting}">${esc(labelForMeeting(meeting))}</h2></div><span>${items.length} SOAL</span></header><div class="guide-list">${items.map(item => `
+          <article class="guide-card" id="uts-question-${String(item.number).padStart(2, '0')}">
+            <header class="guide-question"><span class="guide-number">${String(item.number).padStart(2, '0')}</span><div><span class="guide-kicker">SOAL ${String(item.number).padStart(2, '0')}</span><h3>${esc(item.question)}</h3></div></header>
+            <div class="guide-answer"><div class="guide-answer-label">JAWABAN</div><p>${esc(item.answer)}</p><ul>${item.points.map(point => `<li>${esc(point)}</li>`).join('')}</ul>
+              ${item.canvas ? `<div class="bmc-guide-canvas" role="group" aria-label="Diagram sembilan blok Business Model Canvas">${item.canvas.map((block, index) => `<div class="bmc-guide-block bmc-guide-${block.id}"><span>0${index + 1}</span><strong>${esc(block.name)}</strong><small>${esc(block.hint)}</small></div>`).join('')}</div>` : ''}
+              <button class="guide-reference" data-action="guide-topic" data-module="${item.module}" data-section="${item.section}" data-target="${item.target}">Rujukan: ${esc(item.reference)} <span aria-hidden="true">↗</span></button>
+            </div>
+          </article>`).join('')}</div></section>`;
+      }).join('')}</div>
+      <p class="guide-disclaimer">Ringkasan ini membantu mengulang materi; gunakan rujukan pertemuan untuk definisi, contoh, dan uraian lengkap.</p>
+    </article>`;
 }
 
 function renderModule() {
@@ -438,9 +477,8 @@ function openModule(moduleId, section = null, targetId = null) {
   if (!course.some(mod => mod.id === moduleId)) return;
   clearTimeout(state.searchHighlightTimer);
   state.searchHighlightTimer = null;
-  state.active = moduleId; state.cheat = false;
+  state.page = 'module'; state.active = moduleId; state.cheat = false;
   renderNav(); setBreadcrumb(); renderModule();
-  document.querySelectorAll('.side-home').forEach(el => el.classList.remove('active'));
   closeSidebar();
   if (targetId) {
     requestAnimationFrame(() => {
@@ -462,9 +500,13 @@ function openModule(moduleId, section = null, targetId = null) {
 }
 
 function openDashboard() {
-  state.active = null; state.cheat = false;
-  document.querySelectorAll('.side-home').forEach(el => el.classList.add('active'));
+  state.page = 'dashboard'; state.active = null; state.cheat = false;
   renderNav(); setBreadcrumb(); renderDashboard(); closeSidebar(); window.scrollTo({ top: 0, behavior: scrollBehavior() });
+}
+
+function openGuide() {
+  state.page = 'guide'; state.active = null; state.cheat = false; state.guideMeeting = 'all';
+  renderNav(); setBreadcrumb(); renderGuide(); closeSidebar(); window.scrollTo({ top: 0, behavior: scrollBehavior() });
 }
 
 function updateVisuals() {
@@ -491,6 +533,9 @@ document.addEventListener('click', event => {
   if (!button) return;
   const action = button.dataset.action;
   if (action === 'dashboard') { openDashboard(); return; }
+  if (action === 'guide') { openGuide(); return; }
+  if (action === 'guide-filter') { state.guideMeeting = button.dataset.value; renderGuide(); return; }
+  if (action === 'guide-topic') { openModule(button.dataset.module, button.dataset.section, button.dataset.target); return; }
   if (action === 'module') { openModule(button.dataset.module); return; }
   if (action === 'open-sidebar') { $('#sidebar').classList.add('open'); $('#sidebar-scrim').classList.add('open'); return; }
   if (action === 'close-sidebar') { closeSidebar(); return; }

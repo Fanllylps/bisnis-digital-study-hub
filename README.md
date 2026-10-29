@@ -1,6 +1,6 @@
 # Ruang Belajar — Pengantar Bisnis Digital
 
-Website pembelajaran statis untuk enam pertemuan materi. Seluruh materi terstruktur berada di `courseData.js`; tampilan dan interaksi berada di `app.js` dan `styles.css`.
+Website pembelajaran statis untuk enam pertemuan materi. Materi perkuliahan berada di `courseData.js`, jawaban kisi-kisi UTS berada di `utsGuide.js`, dan tampilan/interaksi berada di `app.js` serta `styles.css`.
 
 ## Menjalankan
 
@@ -17,6 +17,7 @@ Progress baca, pilihan tema, dan jawaban kuis disimpan di `localStorage` browser
 ## Isi
 
 - Dashboard studi, navigasi enam pertemuan, progress tracker, dan pencarian `Ctrl/Cmd + K`.
+- Tab kisi-kisi UTS berisi 12 jawaban, filter pertemuan, diagram BMC, dan tautan ke materi terkait.
 - Tampilan materi lengkap atau ringkasan ujian untuk setiap pertemuan.
 - Visualisasi interaktif khusus untuk keenam modul, flashcards, dan mini quiz dengan pembahasan.
 - Tema editorial terang dan gelap.
