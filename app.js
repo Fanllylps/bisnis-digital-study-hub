@@ -16,7 +16,7 @@ const state = {
   read: new Set(savedRead),
   theme: localStorage.getItem(themeKey) || 'light',
   ui: { compareDim: 0, compareView: 'digital', conceptNode: 'value', timeline: 0, webEra: 0, technology: 'internet', actor: 'platform', effect: 0, case: 0, roadmap: 0, mechanic: 'network', modelFamily: 'Semua', model: 'marketplace', bmc: 'segments', bmcCase: 0, fit: 'problem' },
-  flash: {}, quiz: {}, searchItems: [], searchCursor: -1,
+  flash: {}, quiz: {}, searchItems: [], searchCursor: -1, searchHighlightTimer: null,
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -99,7 +99,7 @@ function renderModule() {
     <article class="module-page accent-${mod.accent}">
       <header class="module-head">
         <div class="module-head-top"><div class="eyebrow">PERTEMUAN ${mod.no} <span>·</span> ${mod.sections.length} TOPIK</div><div class="visual-label">${percent}% SELESAI DIBACA</div></div>
-        <h1>${esc(mod.title)}</h1><p class="module-outcome"><b>CAPAIAN</b><span>${esc(mod.outcome)}</span></p><div class="module-source">${esc(mod.source)}</div>
+        <h1 id="${mod.id}-module-title" class="search-result-target" tabindex="-1">${esc(mod.title)}</h1><p class="module-outcome"><b>CAPAIAN</b><span>${esc(mod.outcome)}</span></p><div class="module-source">${esc(mod.source)}</div>
       </header>
       <div class="module-toolbar"><div class="view-toggle" role="group" aria-label="Tampilan materi"><button class="${!quick ? 'active' : ''}" data-action="view-full">Materi lengkap</button><button class="${quick ? 'active' : ''}" data-action="view-cheat">Ringkasan ujian</button></div><button class="complete-button ${percent === 100 ? 'done' : ''}" data-action="complete-module" data-module="${mod.id}">${icon('check')}<span>${percent === 100 ? 'Tandai belum selesai' : 'Tandai modul selesai'}</span></button></div>
       ${quick ? `<section class="quick-sheet"><div class="quick-sheet-title"><div class="mono-label">RANGKUMAN SKS</div><h2>Yang perlu diingat.</h2><p>Inti materi ${mod.no} dalam poin ringkas.</p></div><ul class="quick-list">${mod.summary.map(item => `<li>${esc(item)}</li>`).join('')}</ul></section>` : `<section class="module-visuals" id="module-visuals"><div class="section-kicker">VISUALISASI & EKSPLORASI</div>${renderVisuals(mod)}</section>
@@ -113,13 +113,13 @@ function renderSection(mod, section, i) {
   const key = `${mod.id}:${i}`;
   const done = state.read.has(key);
   return `<section class="content-section" id="${mod.id}-section-${i}">
-    <header class="content-section-head"><div><span class="section-number">${mod.no}.${String(i + 1).padStart(2, '0')}</span><h2>${esc(section.title)}</h2></div><span class="slides">SLIDE ${esc(section.slides)}</span></header>
+    <header class="content-section-head"><div><span class="section-number">${mod.no}.${String(i + 1).padStart(2, '0')}</span><h2 id="${mod.id}-section-title-${i}" class="search-result-target" tabindex="-1">${esc(section.title)}</h2></div><span class="slides">SLIDE ${esc(section.slides)}</span></header>
     <p class="section-intro">${esc(section.intro)}</p>
-    <div class="concept-list">${section.concepts.map(concept => `<div class="concept-item"><div class="concept-title"><h3>${esc(concept.name)}</h3><span>Konsep inti</span></div><div class="concept-body">${[
+    <div class="concept-list">${section.concepts.map((concept, conceptIndex) => `<div id="${mod.id}-concept-${i}-${conceptIndex}" class="concept-item search-result-target" tabindex="-1"><div class="concept-title"><h3>${esc(concept.name)}</h3><span>Konsep inti</span></div><div class="concept-body">${[
       ['Definisi inti', concept.definition, ''], ['Cara kerja / mekanisme', concept.mechanism, ''], ['Contoh nyata', concept.example, ''], ['Poin kunci ujian', concept.takeaway, 'takeaway']
     ].map(([label, text, cls]) => `<div class="concept-detail ${cls}"><strong>${label}</strong><p>${esc(text)}</p></div>`).join('')}</div></div>`).join('')}</div>
-     ${section.matrix ? `<div class="table-scroll" role="region" aria-label="Tabel perbandingan bisnis konvensional dan digital" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th>Bisnis konvensional</th><th>Bisnis digital</th></tr></thead><tbody>${section.matrix.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}
-    ${section.exercise ? `<div class="section-exercise"><strong>Latihan dari materi</strong>${esc(section.exercise)}</div>` : ''}
+    ${section.matrix ? `<div class="table-scroll" role="region" aria-label="Tabel perbandingan bisnis konvensional dan digital" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th>Bisnis konvensional</th><th>Bisnis digital</th></tr></thead><tbody>${section.matrix.map((row, rowIndex) => `<tr id="${mod.id}-matrix-${i}-${rowIndex}" class="search-result-target" tabindex="-1">${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}
+    ${section.exercise ? `<div id="${mod.id}-exercise-${i}" class="section-exercise search-result-target" tabindex="-1"><strong>Latihan dari materi</strong>${esc(section.exercise)}</div>` : ''}
     <div class="section-complete-line"><button class="mark-section ${done ? 'done' : ''}" data-action="mark-section" data-key="${key}">${done ? '✓ Selesai dibaca' : '+ Tandai selesai dibaca'}</button></div>
   </section>`;
 }
@@ -128,11 +128,11 @@ function renderRecall(mod) {
   return `<section class="recall-section" id="recall"><div class="recall-head"><div><div class="eyebrow">ACTIVE RECALL · PERTEMUAN ${mod.no}</div><h2>Uji pemahaman</h2></div><p>Ingat kembali sebelum membuka jawaban.</p></div>
     <div class="flashcard-row">${mod.flashcards.map(([front, back], i) => {
       const flipped = Boolean(state.flash[`${mod.id}:${i}`]);
-      return `<button class="flashcard ${flipped ? 'flipped' : ''}" data-action="flashcard" data-index="${i}"><span class="flash-label">${flipped ? 'JAWABAN · KLIK UNTUK BALIK' : `FLASHCARD ${String(i + 1).padStart(2, '0')} · KLIK UNTUK BUKA`}</span><span class="flash-content">${esc(flipped ? back : front)}</span></button>`;
+      return `<button id="search-flashcard-${mod.id}-${i}" class="flashcard search-result-target ${flipped ? 'flipped' : ''}" data-action="flashcard" data-index="${i}"><span class="flash-label">${flipped ? 'JAWABAN · KLIK UNTUK BALIK' : `FLASHCARD ${String(i + 1).padStart(2, '0')} · KLIK UNTUK BUKA`}</span><span class="flash-content">${esc(flipped ? back : front)}</span></button>`;
     }).join('')}</div>
     <div class="quiz-wrap"><div class="quiz-heading"><h3>Mini quiz</h3><span>${mod.quiz.length} SOAL · PILIHAN GANDA</span></div>${mod.quiz.map((item, qi) => {
       const answer = state.quiz[`${mod.id}:${qi}`];
-      return `<div class="quiz-item"><span class="quiz-num">${String(qi + 1).padStart(2, '0')}</span><div><p class="quiz-question">${esc(item.q)}</p><div class="quiz-options">${item.options.map((option, oi) => {
+      return `<div id="search-quiz-${mod.id}-${qi}" class="quiz-item search-result-target" tabindex="-1"><span class="quiz-num">${String(qi + 1).padStart(2, '0')}</span><div><p class="quiz-question">${esc(item.q)}</p><div class="quiz-options">${item.options.map((option, oi) => {
         const selected = answer === oi;
         const cls = selected ? (oi === item.answer ? 'selected-correct' : 'selected-wrong') : '';
         return `<button class="quiz-option ${cls}" data-action="quiz-answer" data-q="${qi}" data-option="${oi}"><span class="option-marker">${String.fromCharCode(65 + oi)}</span><span>${esc(option)}</span></button>`;
@@ -162,7 +162,7 @@ function renderM1() {
     <section class="visual-panel">${panelHead('Bisnis konvensional vs digital', 'Pilih dimensi untuk melihat perbedaan langsung berdasarkan materi pertemuan.')}
       <div class="pill-row">${course[0].compare.map((dim, i) => pill(dim.label, 'compare-dim', i, Number(state.ui.compareDim) === i)).join('')}</div>
       <div class="pill-row" aria-label="Sorot sisi perbandingan">${pill('Tradisional', 'compare-view', 'traditional', focusTraditional)}${pill('Digital', 'compare-view', 'digital', !focusTraditional)}</div>
-       <div class="table-scroll" role="region" aria-label="Perbandingan bisnis konvensional dan digital; geser tabel ke samping untuk melihat kolom lain" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th class="${focusTraditional ? 'is-focus' : ''}">Konvensional</th><th class="${!focusTraditional ? 'is-focus' : ''}">Digital</th></tr></thead><tbody>${course[0].compare.map((dim, i) => `<tr><td>${esc(dim.label)}</td><td class="${focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.traditional)}</td><td class="${!focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.digital)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="table-scroll" role="region" aria-label="Perbandingan bisnis konvensional dan digital; geser tabel ke samping untuk melihat kolom lain" tabindex="0"><table class="compare-table"><thead><tr><th>Dimensi</th><th class="${focusTraditional ? 'is-focus' : ''}">Konvensional</th><th class="${!focusTraditional ? 'is-focus' : ''}">Digital</th></tr></thead><tbody>${course[0].compare.map((dim, i) => `<tr><td>${esc(dim.label)}</td><td class="${focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.traditional)}</td><td class="${!focusTraditional && i === Number(state.ui.compareDim) ? 'is-focus' : ''}">${esc(dim.digital)}</td></tr>`).join('')}</tbody></table></div>
       <div class="compare-insight"><strong>${esc(item.label)} · </strong>${esc(focusTraditional ? item.traditional : item.digital)} <span>— bisnis modern juga dapat bersifat hybrid.</span></div>
     </section>
     <section class="visual-panel">${panelHead('Peta konsep bisnis digital', 'Pilih node untuk menelusuri hubungan antarkomponen.')}
@@ -183,7 +183,7 @@ function renderM2() {
       <div class="web-era-row">${course[1].webEras.map((item, i) => `<button class="web-era-button ${i === Number(state.ui.webEra) ? 'active' : ''}" data-action="web-era" data-value="${i}"><strong>${esc(item.label)}</strong>${esc(item.title)}</button>`).join('')}</div><div class="web-detail"><strong>${esc(web.period)} · ${esc(web.tech)}.</strong> ${esc(web.impact)}</div>
     </section>
     <section class="visual-panel span-2">${panelHead('Tech-impact explorer', 'Teknologi dalam materi dipilih untuk menelusuri dampak operasional dan contoh penerapannya.')}
-      <div class="technology-grid">${course[1].technologies.map(item => `<button class="technology-button ${item.id === tech.id ? 'active' : ''}" data-action="technology" data-value="${item.id}"><strong>${esc(item.name)}</strong><span>${esc(item.tag)}</span></button>`).join('')}</div>
+      <div class="technology-grid">${course[1].technologies.map(item => `<button id="search-technology-${item.id}" class="technology-button search-result-target ${item.id === tech.id ? 'active' : ''}" data-action="technology" data-value="${item.id}"><strong>${esc(item.name)}</strong><span>${esc(item.tag)}</span></button>`).join('')}</div>
       <div class="impact-detail">${detailBox(`${tech.name} · Dampak bisnis`, tech.impact, `<p><strong>Contoh:</strong> ${esc(tech.example)}</p>`)}</div>
     </section>
   </div>`;
@@ -196,7 +196,7 @@ function renderM3() {
   const effectSteps = ['Customer bertambah', 'Transaksi meningkat', 'Merchant tertarik bergabung', 'Pilihan produk bertambah', 'Customer semakin tertarik', 'Customer bertambah lagi'];
   return `<div class="visual-grid accent-emerald">
     <section class="visual-panel span-2">${panelHead('Arsitektur ekosistem digital', 'Klik atau arahkan fokus ke aktor untuk menyorot hubungan dan pertukaran nilainya.')}
-      <div class="ecosystem-layout"><div class="ecosystem-map"><span class="eco-caption"></span>${course[2].actors.map(item => `<button class="eco-node ${item.id} ${state.ui.actor === item.id ? 'selected' : ''} ${activeConnections.has(item.id) ? 'connected' : ''}" data-action="actor" data-value="${item.id}">${esc(item.label)}</button>`).join('')}</div>
+      <div class="ecosystem-layout"><div class="ecosystem-map"><span class="eco-caption"></span>${course[2].actors.map(item => `<button id="search-actor-${item.id}" class="eco-node search-result-target ${item.id} ${state.ui.actor === item.id ? 'selected' : ''} ${activeConnections.has(item.id) ? 'connected' : ''}" data-action="actor" data-value="${item.id}">${esc(item.label)}</button>`).join('')}</div>
         <div class="eco-side">${detailBox(actor.label, actor.role)}<div class="visual-label">TERHUBUNG DENGAN</div><div class="pill-row">${actor.connects.map(id => `<span class="pill-button active">${esc(course[2].actors.find(a => a.id === id)?.label || id)}</span>`).join('')}</div></div></div>
       <div class="case-select-wrap" style="margin-top:14px"><label class="visual-label" for="ecosystem-case">TELUSURI STUDI KASUS</label><select class="case-select" id="ecosystem-case" data-action="case-select">${course[2].cases.map((item, i) => `<option value="${i}" ${Number(state.ui.case) === i ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select><div class="case-flow"><strong>${esc(caseStudy.actors)}</strong><br/><br/>${esc(caseStudy.flow)}</div></div>
     </section>
@@ -237,7 +237,7 @@ function renderM5() {
   return `<div class="visual-grid accent-indigo">
     <section class="visual-panel span-2">${panelHead('Business model blueprint', 'Filter model berdasarkan logika nilai, lalu pilih model untuk memetakan pelanggan dan monetisasinya.')}
       <div class="model-filter">${families.map(family => pill(family, 'model-family', family, family === state.ui.modelFamily)).join('')}</div>
-      <div class="model-gallery">${filtered.map(item => `<button class="model-option ${item.id === chosen.id ? 'active' : ''}" data-action="business-model" data-value="${item.id}"><span class="model-tag">${esc(item.family)}</span><strong>${esc(item.name)}</strong><span>${esc(item.example)}</span></button>`).join('')}</div>
+       <div class="model-gallery">${filtered.map(item => `<button id="search-model-${item.id}" class="model-option search-result-target ${item.id === chosen.id ? 'active' : ''}" data-action="business-model" data-value="${item.id}"><span class="model-tag">${esc(item.family)}</span><strong>${esc(item.name)}</strong><span>${esc(item.example)}</span></button>`).join('')}</div>
     </section>
     <section class="visual-panel span-2">${panelHead(`Alur nilai & pendapatan · ${esc(chosen.name)}`, 'Alur produk/jasa dipisahkan dari alur pembayaran untuk melihat siapa menerima dan menangkap nilai.')}
       <div class="flow-diagram">${chosen.flow.map((label, i) => `${i ? '<span class="flow-arrow">→</span>' : ''}<div class="flow-node ${label.toLowerCase().includes('platform') ? 'platform-node' : ''}">${esc(label)}</div>`).join('')}</div>
@@ -268,7 +268,7 @@ function renderM6() {
   return `<div class="visual-grid accent-emerald">
     <section class="visual-panel span-2">${panelHead('Interactive 9-block Business Model Canvas', 'Klik blok untuk membuka pertanyaan analisis, indikator evaluasi, dan bukti studi kasus.')}
       <div class="bmc-case-select">${caseNames.map((name, i) => `<button class="pill-button ${Number(state.ui.bmcCase) === i ? 'active' : ''}" data-action="bmc-case" data-value="${i}">${esc(name)}</button>`).join('')}</div>
-      <div class="bmc-layout"><div class="bmc-grid">${blocks.map((block, i) => `<button class="bmc-block bmc-${block.id} ${block.id === selected.id ? 'selected' : ''}" data-action="bmc-block" data-value="${block.id}"><span class="bmc-index">0${i + 1}</span><strong>${esc(block.name)}</strong><span>${esc(block.short)}</span></button>`).join('')}</div>
+       <div class="bmc-layout"><div class="bmc-grid">${blocks.map((block, i) => `<button id="search-bmc-${block.id}" class="bmc-block search-result-target bmc-${block.id} ${block.id === selected.id ? 'selected' : ''}" data-action="bmc-block" data-value="${block.id}"><span class="bmc-index">0${i + 1}</span><strong>${esc(block.name)}</strong><span>${esc(block.short)}</span></button>`).join('')}</div>
         <aside class="bmc-detail"><div class="visual-label">BLOK TERPILIH</div><h4>${esc(selected.name)}</h4><p>${esc(selected.short)}</p><h5>Pertanyaan analisis</h5><ul>${selected.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul><h5>Indikator evaluasi</h5><ul>${selected.indicators.map(q => `<li>${esc(q)}</li>`).join('')}</ul><div class="bmc-case-note"><strong>Simulasi studi kasus</strong><br/>${esc(caseDescription)}${caseNote ? `<br/><br/><em>${esc(caseNote)}</em>` : ''}</div></aside></div>
     </section>
     <section class="visual-panel span-2">${panelHead('Analytical framework · konsistensi dan fit', 'Kerangka analisis yang tersedia pada file pertemuan 6 adalah pemeriksaan konsistensi BMC dan kelayakan ekonomi.')}
@@ -280,37 +280,125 @@ function renderM6() {
 }
 
 // Search indexes the source-derived teaching material, not only module headings.
+const searchStopWords = new Set(['apa', 'yang', 'dan', 'di', 'ke', 'dari', 'dengan', 'untuk', 'dalam', 'adalah', 'itu', 'ini', 'bagaimana', 'tentang', 'pada', 'atau']);
+const normalizeSearch = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('id').replace(/[^a-z0-9]+/g, ' ').trim();
+const searchTerms = query => {
+  const all = normalizeSearch(query).split(' ').filter(Boolean);
+  const useful = all.filter(term => term.length > 1 && !searchStopWords.has(term));
+  return useful.length ? useful : all;
+};
+
+function oneEditAway(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let left = 0, right = 0, differences = 0;
+  while (left < a.length && right < b.length) {
+    if (a[left] === b[right]) { left++; right++; continue; }
+    if (++differences > 1) return false;
+    if (a.length > b.length) left++;
+    else if (b.length > a.length) right++;
+    else { left++; right++; }
+  }
+  return differences + Number(left < a.length || right < b.length) <= 1;
+}
+
+function hasWordPrefix(words, prefix) {
+  for (const word of words) if (word.startsWith(prefix)) return true;
+  return false;
+}
+
+function prepareSearchItem(item) {
+  const title = normalizeSearch(item.title);
+  const text = normalizeSearch(item.text);
+  const kind = normalizeSearch(item.kind);
+  return { ...item, search: { title, text, kind, titleWords: title.split(' ').filter(Boolean), textWords: new Set(text.split(' ').filter(Boolean)), kindWords: new Set(kind.split(' ').filter(Boolean)) } };
+}
+
+function scoreSearchItem(item, phrase, terms) {
+  const { title, text, kind, titleWords, textWords, kindWords } = item.search;
+  let score = 0, titleMatches = 0, bodyMatches = 0;
+
+  if (title === phrase) score += 1400;
+  else if (title.startsWith(phrase)) score += 900;
+  else if (phrase.length > 2 && title.includes(phrase)) score += 650;
+  if (phrase.length > 2 && text.includes(phrase)) score += 220;
+  if (phrase.length > 2 && kind.includes(phrase)) score += 140;
+
+  for (const term of terms) {
+    if (titleWords.includes(term)) { score += 115; titleMatches++; }
+    else if (term.length > 2 && titleWords.some(word => word.startsWith(term))) { score += 62; titleMatches++; }
+    else if (textWords.has(term)) { score += 25; bodyMatches++; }
+    else if (term.length > 3 && hasWordPrefix(textWords, term)) { score += 12; bodyMatches++; }
+    else if (kindWords.has(term)) score += 18;
+    else if (term.length > 3 && titleWords.some(word => oneEditAway(term, word))) score += 16;
+  }
+  if (titleMatches === terms.length && terms.length) score += 170;
+  else if (titleMatches + bodyMatches === terms.length && terms.length) score += 70;
+  return score;
+}
+
+function searchSnippet(text, query, limit = 145) {
+  const value = String(text ?? '');
+  const lower = value.toLocaleLowerCase('id');
+  const positions = searchTerms(query).map(term => lower.indexOf(term)).filter(index => index >= 0);
+  const matchAt = positions.length ? Math.min(...positions) : 0;
+  const start = Math.max(0, Math.min(value.length - limit, matchAt - 42));
+  const end = Math.min(value.length, start + limit);
+  return `${start ? '…' : ''}${value.slice(start, end).trim()}${end < value.length ? '…' : ''}`;
+}
+
+function highlightSearchText(text, query) {
+  const terms = [...new Set(searchTerms(query))].sort((a, b) => b.length - a.length);
+  if (!terms.length) return esc(text);
+  const matcher = new RegExp(`(${terms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+  const source = String(text ?? '');
+  let result = '', cursor = 0, match;
+  while ((match = matcher.exec(source))) {
+    result += `${esc(source.slice(cursor, match.index))}<mark>${esc(match[0])}</mark>`;
+    cursor = match.index + match[0].length;
+  }
+  return result + esc(source.slice(cursor));
+}
+
 function buildSearchIndex() {
   const items = [];
   for (const mod of course) {
-    items.push({ module: mod.id, section: null, title: mod.title, text: mod.outcome, kind: `PERTEMUAN ${mod.no}` });
+    items.push({ module: mod.id, section: null, target: `${mod.id}-module-title`, title: mod.title, text: `${mod.outcome} ${mod.source}`, kind: `PERTEMUAN ${mod.no}` });
     mod.sections.forEach((section, i) => {
-      items.push({ module: mod.id, section: i, title: section.title, text: section.intro, kind: `SUBBAB · SLIDE ${section.slides}` });
-      section.concepts.forEach(concept => items.push({ module: mod.id, section: i, title: concept.name, text: `${concept.definition} ${concept.mechanism} ${concept.example}`, kind: `DEFINISI · ${mod.no}` }));
+      items.push({ module: mod.id, section: i, target: `${mod.id}-section-title-${i}`, title: section.title, text: section.intro, kind: `SUBBAB · SLIDE ${section.slides}` });
+      section.concepts.forEach((concept, conceptIndex) => items.push({ module: mod.id, section: i, target: `${mod.id}-concept-${i}-${conceptIndex}`, title: concept.name, text: `${concept.definition} ${concept.mechanism} ${concept.example} ${concept.takeaway}`, kind: `KONSEP · PERTEMUAN ${mod.no}` }));
+      section.matrix?.forEach((row, rowIndex) => items.push({ module: mod.id, section: i, target: `${mod.id}-matrix-${i}-${rowIndex}`, title: row[0], text: row.join(' '), kind: `TABEL · ${section.title}` }));
+      if (section.exercise) items.push({ module: mod.id, section: i, target: `${mod.id}-exercise-${i}`, title: `Latihan: ${section.title}`, text: section.exercise, kind: 'LATIHAN MATERI' });
     });
-    if (mod.businessModels) mod.businessModels.forEach(item => items.push({ module: mod.id, section: 1, title: item.name, text: `${item.value} ${item.revenue} ${item.example}`, kind: 'MODEL BISNIS · 05' }));
-    if (mod.actors) mod.actors.forEach(item => items.push({ module: mod.id, section: 1, title: item.label, text: item.role, kind: 'AKTOR · 03' }));
-    if (mod.technologies) mod.technologies.forEach(item => items.push({ module: mod.id, section: 2, title: item.name, text: item.impact, kind: 'TEKNOLOGI · 02' }));
-    if (mod.bmc) mod.bmc.forEach(item => items.push({ module: mod.id, section: 1, title: item.name, text: `${item.short} ${item.questions.join(' ')}`, kind: 'BMC · 06' }));
+    mod.flashcards.forEach(([front, back], i) => items.push({ module: mod.id, section: null, target: `search-flashcard-${mod.id}-${i}`, title: front, text: back, kind: `FLASHCARD · PERTEMUAN ${mod.no}` }));
+    mod.quiz.forEach((item, i) => items.push({ module: mod.id, section: null, target: `search-quiz-${mod.id}-${i}`, title: item.q, text: `${item.options.join(' ')} ${item.why}`, kind: `KUIS · PERTEMUAN ${mod.no}` }));
+    if (mod.businessModels) mod.businessModels.forEach(item => items.push({ module: mod.id, section: 1, target: `search-model-${item.id}`, uiState: { model: item.id, modelFamily: 'Semua' }, title: item.name, text: `${item.value} ${item.revenue} ${item.money} ${item.example}`, kind: 'MODEL BISNIS · 05' }));
+    if (mod.actors) mod.actors.forEach(item => items.push({ module: mod.id, section: 1, target: `search-actor-${item.id}`, uiState: { actor: item.id }, title: item.label, text: item.role, kind: 'AKTOR EKOSISTEM · 03' }));
+    if (mod.technologies) mod.technologies.forEach(item => items.push({ module: mod.id, section: 2, target: `search-technology-${item.id}`, uiState: { technology: item.id }, title: item.name, text: `${item.tag} ${item.impact} ${item.example}`, kind: 'TEKNOLOGI · 02' }));
+    if (mod.bmc) mod.bmc.forEach(item => items.push({ module: mod.id, section: 1, target: `search-bmc-${item.id}`, uiState: { bmc: item.id }, title: item.name, text: `${item.short} ${item.questions.join(' ')} ${item.indicators.join(' ')}`, kind: 'BMC · 06' }));
   }
   return items;
 }
-state.searchItems = buildSearchIndex();
+state.searchItems = buildSearchIndex().map(prepareSearchItem);
 
 function showSearch() {
   overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
   searchInput.value = ''; searchResults.innerHTML = '<p class="search-hint">Ketik untuk mencari di seluruh materi.</p>'; state.searchCursor = -1;
   requestAnimationFrame(() => searchInput.focus());
 }
-function hideSearch() { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); }
+function hideSearch() { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); searchInput.blur(); }
 function doSearch(query) {
-  const term = query.trim().toLocaleLowerCase('id');
-  if (!term) { searchResults.innerHTML = '<p class="search-hint">Ketik untuk mencari di seluruh materi.</p>'; return; }
-  const results = state.searchItems.filter(item => `${item.title} ${item.text} ${item.kind}`.toLocaleLowerCase('id').includes(term)).slice(0, 24);
-  if (!results.length) { searchResults.innerHTML = '<p class="search-hint">Tidak ditemukan. Coba istilah lain, misalnya “network effect”, “cloud”, atau “revenue”.</p>'; return; }
-  searchResults.innerHTML = results.map((item, i) => {
+  const phrase = normalizeSearch(query);
+  if (!phrase) { searchResults.innerHTML = '<p class="search-hint">Ketik untuk mencari di seluruh materi.</p>'; state.searchCursor = -1; return; }
+  const terms = searchTerms(query);
+  const results = state.searchItems.map((item, order) => ({ item, order, score: scoreSearchItem(item, phrase, terms) }))
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .slice(0, 20);
+  if (!results.length) { searchResults.innerHTML = '<p class="search-hint">Tidak ditemukan. Coba istilah lain, misalnya “network effect”, “cloud”, atau “revenue”.</p>'; state.searchCursor = -1; return; }
+  searchResults.innerHTML = results.map(({ item }, i) => {
     const mod = course.find(m => m.id === item.module);
-    return `<button class="search-result ${i === 0 ? 'active' : ''}" data-action="search-result" data-module="${mod.id}" data-section="${item.section ?? ''}"><span class="result-number">${mod.no}</span><span class="result-text"><strong>${esc(item.title)}</strong><span>${esc(item.kind)} · ${esc(item.text.slice(0, 145))}</span></span></button>`;
+    const snippet = searchSnippet(item.text, query);
+    return `<button class="search-result ${i === 0 ? 'active' : ''}" data-action="search-result" data-module="${mod.id}" data-section="${item.section ?? ''}" data-target="${esc(item.target)}" data-ui-state="${esc(JSON.stringify(item.uiState || {}))}" aria-label="${esc(`${item.title}, ${item.kind}`)}"><span class="result-number">${mod.no}</span><span class="result-text"><strong>${highlightSearchText(item.title, query)}</strong><span>${highlightSearchText(item.kind, query)} · ${highlightSearchText(snippet, query)}</span></span></button>`;
   }).join('');
   state.searchCursor = 0;
 }
@@ -330,13 +418,29 @@ function updateNavAndDashboard() {
   }
 }
 
-function openModule(moduleId, section = null) {
+function openModule(moduleId, section = null, targetId = null) {
   if (!course.some(mod => mod.id === moduleId)) return;
+  clearTimeout(state.searchHighlightTimer);
+  state.searchHighlightTimer = null;
   state.active = moduleId; state.cheat = false;
   renderNav(); setBreadcrumb(); renderModule();
   document.querySelectorAll('.side-home').forEach(el => el.classList.remove('active'));
   closeSidebar();
-  if (section !== null && section !== '') {
+  if (targetId) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(targetId);
+      if (!target) {
+        if (section !== null && section !== '') document.getElementById(`${moduleId}-section-${section}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+        return;
+      }
+      target.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
+      target.focus?.({ preventScroll: true });
+      clearTimeout(state.searchHighlightTimer);
+      document.querySelector('.search-result-target.search-result-hit')?.classList.remove('search-result-hit');
+      target.classList.add('search-result-hit');
+      state.searchHighlightTimer = setTimeout(() => target.classList.remove('search-result-hit'), 1450);
+    });
+  } else if (section !== null && section !== '') {
     requestAnimationFrame(() => document.getElementById(`${moduleId}-section-${section}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
   } else window.scrollTo({ top: 0, behavior: scrollBehavior() });
 }
@@ -431,7 +535,10 @@ document.addEventListener('click', event => {
   if (action === 'search-result') {
     const moduleId = button.dataset.module;
     const section = button.dataset.section;
-    hideSearch(); openModule(moduleId, section === '' ? null : section); return;
+    let uiState = {};
+    try { uiState = JSON.parse(button.dataset.uiState || '{}'); } catch { /* Ignore malformed optional visual state. */ }
+    Object.assign(state.ui, uiState);
+    hideSearch(); openModule(moduleId, section === '' ? null : section, button.dataset.target); return;
   }
 });
 
