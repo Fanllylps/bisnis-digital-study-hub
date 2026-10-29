@@ -280,7 +280,13 @@ function renderM6() {
 }
 
 // Search indexes the source-derived teaching material, not only module headings.
-const searchStopWords = new Set(['apa', 'yang', 'dan', 'di', 'ke', 'dari', 'dengan', 'untuk', 'dalam', 'adalah', 'itu', 'ini', 'bagaimana', 'tentang', 'pada', 'atau']);
+const searchStopWords = new Set(['apa', 'yang', 'dan', 'di', 'ke', 'dari', 'dengan', 'untuk', 'dalam', 'adalah', 'itu', 'ini', 'bagaimana', 'tentang', 'pada', 'atau', 'pengertian', 'definisi', 'penjelasan', 'jelaskan', 'sebutkan', 'uraikan', 'gambarkan', 'perbedaan', 'antara', 'beberapa', 'aspek', 'peran']);
+const searchSynonyms = {
+  kewirausahaan: ['wirausaha', 'entrepreneurship'], wirausaha: ['kewirausahaan', 'entrepreneurship'], entrepreneurship: ['kewirausahaan', 'wirausaha'],
+  inovasi: ['innovation'], innovation: ['inovasi'], pendapatan: ['revenue', 'penghasilan'], revenue: ['pendapatan', 'penghasilan'],
+  pendanaan: ['funding', 'pembiayaan'], funding: ['pendanaan', 'pembiayaan'], pembiayaan: ['pendanaan', 'funding'],
+  developer: ['pengembang'], pengembang: ['developer'], pemerintah: ['government'], government: ['pemerintah'],
+};
 const normalizeSearch = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('id').replace(/[^a-z0-9]+/g, ' ').trim();
 const searchTerms = query => {
   const all = normalizeSearch(query).split(' ').filter(Boolean);
@@ -315,7 +321,7 @@ function prepareSearchItem(item) {
 
 function scoreSearchItem(item, phrase, terms) {
   const { title, text, kind, titleWords, textWords, kindWords } = item.search;
-  let score = 0, titleMatches = 0, bodyMatches = 0;
+  let score = 0, titleMatches = 0, bodyMatches = 0, kindMatches = 0, matchedWeight = 0;
 
   if (title === phrase) score += 1400;
   else if (title.startsWith(phrase)) score += 900;
@@ -324,15 +330,19 @@ function scoreSearchItem(item, phrase, terms) {
   if (phrase.length > 2 && kind.includes(phrase)) score += 140;
 
   for (const term of terms) {
-    if (titleWords.includes(term)) { score += 115; titleMatches++; }
-    else if (term.length > 2 && titleWords.some(word => word.startsWith(term))) { score += 62; titleMatches++; }
-    else if (textWords.has(term)) { score += 25; bodyMatches++; }
-    else if (term.length > 3 && hasWordPrefix(textWords, term)) { score += 12; bodyMatches++; }
-    else if (kindWords.has(term)) score += 18;
-    else if (term.length > 3 && titleWords.some(word => oneEditAway(term, word))) score += 16;
+    const variants = [term, ...(searchSynonyms[term] || [])];
+    const frequency = variants.reduce((sum, variant) => sum + (state.searchFrequency.get(variant) || 0), 0);
+    const weight = Math.min(4, 1 + Math.log((state.searchItems.length + 1) / (frequency + 1)));
+    if (variants.some(variant => titleWords.includes(variant))) { score += 115 * weight; titleMatches++; matchedWeight += weight; }
+    else if (variants.some(variant => variant.length > 2 && titleWords.some(word => word.startsWith(variant)))) { score += 62 * weight; titleMatches++; matchedWeight += weight; }
+    else if (variants.some(variant => textWords.has(variant))) { score += 25 * weight; bodyMatches++; matchedWeight += weight; }
+    else if (variants.some(variant => variant.length > 3 && hasWordPrefix(textWords, variant))) { score += 12 * weight; bodyMatches++; matchedWeight += weight; }
+    else if (variants.some(variant => kindWords.has(variant))) { score += 18 * weight; kindMatches++; matchedWeight += weight; }
+    else if (term.length > 3 && titleWords.some(word => oneEditAway(term, word))) { score += 16 * weight; matchedWeight += weight; }
   }
-  if (titleMatches === terms.length && terms.length) score += 170;
-  else if (titleMatches + bodyMatches === terms.length && terms.length) score += 70;
+  if (titleMatches === terms.length && terms.length) score += 26 * matchedWeight;
+  else if (titleMatches + bodyMatches + kindMatches === terms.length && terms.length) score += 14 * matchedWeight;
+  if (item.kind.startsWith('PERTEMUAN') && !terms.includes('pertemuan') && title !== phrase) score *= .68;
   return score;
 }
 
@@ -379,6 +389,11 @@ function buildSearchIndex() {
   return items;
 }
 state.searchItems = buildSearchIndex().map(prepareSearchItem);
+state.searchFrequency = new Map();
+for (const item of state.searchItems) {
+  const words = new Set([...item.search.titleWords, ...item.search.textWords, ...item.search.kindWords]);
+  for (const word of words) state.searchFrequency.set(word, (state.searchFrequency.get(word) || 0) + 1);
+}
 
 function showSearch() {
   overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
@@ -387,9 +402,10 @@ function showSearch() {
 }
 function hideSearch() { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); searchInput.blur(); }
 function doSearch(query) {
-  const phrase = normalizeSearch(query);
-  if (!phrase) { searchResults.innerHTML = '<p class="search-hint">Ketik untuk mencari di seluruh materi.</p>'; state.searchCursor = -1; return; }
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) { searchResults.innerHTML = '<p class="search-hint">Ketik untuk mencari di seluruh materi.</p>'; state.searchCursor = -1; return; }
   const terms = searchTerms(query);
+  const phrase = terms.join(' ');
   const results = state.searchItems.map((item, order) => ({ item, order, score: scoreSearchItem(item, phrase, terms) }))
     .filter(result => result.score > 0)
     .sort((a, b) => b.score - a.score || a.order - b.order)
